@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OSG LOOKUP — Tra cứu catalog offline</title>
+<style>
+:root{--bg:#12161B;--panel:#1B222B;--panel2:#161C23;--line:#2C3641;--text:#E7ECF1;--muted:#8B97A5;--amber:#FFC838;--teal:#46C99B;--red:#E86A5E;--blue:#9EC1E8;
+--mono:ui-monospace,SFMono-Regular,'Cascadia Mono',Menlo,Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI','Hiragino Sans',Roboto,sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:940px;margin:0 auto;padding:14px 12px 70px}
+header{display:flex;align-items:baseline;gap:10px;padding:8px 0 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+h1{font-size:18px;font-weight:700;letter-spacing:.08em}
+h1 span{color:var(--amber)}
+.sub{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.searchbox{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+input[type=search]{flex:1;min-width:240px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--amber);font-family:var(--mono);font-size:17px;font-weight:500;padding:11px 13px;outline:none;text-transform:uppercase}
+input[type=search]::placeholder{color:#4A5663;text-transform:none;font-size:13.5px}
+input[type=search]:focus{border-color:var(--amber)}
+select{background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:13px;padding:10px;outline:none}
+.hint{margin-top:8px;font-size:12px;color:var(--muted)}
+.hint b{color:var(--blue);font-family:var(--mono);font-weight:500}
+.stats{margin-top:6px;font-family:var(--mono);font-size:11px;color:#5A6673}
+#results{margin-top:16px}
+.scard{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:14px;overflow:hidden}
+.shead{padding:11px 14px;border-bottom:1px solid var(--line);background:var(--panel2);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.shead .code{font-family:var(--mono);font-size:17px;font-weight:700;color:var(--amber)}
+.shead .name{font-size:12.5px;color:var(--muted);flex:1;min-width:180px}
+.badge{font-family:var(--mono);font-size:10.5px;padding:2px 7px;border:1px solid var(--line);border-radius:4px;color:var(--muted);white-space:nowrap}
+.badge.b1{color:var(--teal);border-color:#2A5F4E}
+.badge.b2{color:var(--blue);border-color:#33506B}
+.sbody{padding:0}
+.meta{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid #232C36}
+.mbtn{font-size:12px;font-weight:600;letter-spacing:.03em;border:1px solid var(--line);border-radius:7px;padding:7px 12px;cursor:pointer;background:var(--panel2);color:var(--blue);text-decoration:none}
+.mbtn:hover{border-color:var(--blue)}
+.mbtn.cc{color:var(--teal)}
+.mbtn.cc:hover{border-color:var(--teal)}
+.hdrline{font-family:var(--mono);font-size:10.5px;color:var(--muted);padding:8px 14px 4px;white-space:pre-wrap;border-bottom:1px solid #232C36}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px}
+td{padding:7px 12px;border-bottom:1px solid #232C36;vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.edp{color:var(--amber);font-weight:600;white-space:nowrap;width:1%}
+td.row{word-break:break-word}
+td.pgc{color:#5A6673;font-size:11px;white-space:nowrap;text-align:right;width:1%}
+tr.guess td.edp{color:#B08E3E}
+.more{padding:9px 14px;font-size:12px;color:var(--blue);cursor:pointer;border-top:1px solid #232C36}
+.more:hover{text-decoration:underline}
+.empty{padding:30px 10px;text-align:center;color:var(--muted);font-size:14px}
+.empty .g{margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.empty a{color:var(--blue);border:1px solid var(--line);border-radius:7px;padding:7px 13px;text-decoration:none;font-size:12.5px}
+#viewer{position:fixed;inset:0;background:rgba(10,13,16,.93);display:none;z-index:50;overflow:auto;padding:16px}
+#viewer.show{display:block}
+#viewer .vh{position:sticky;top:0;display:flex;gap:8px;align-items:center;margin-bottom:10px;background:rgba(10,13,16,.9);padding:6px 0;z-index:2}
+#viewer .vh span{font-family:var(--mono);font-size:13px;color:var(--amber)}
+#viewer button{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:7px 14px;cursor:pointer;font-size:13px}
+#viewer img{display:block;margin:0 auto;max-width:100%;cursor:zoom-in;border-radius:6px}
+#viewer img.zoom{max-width:none;width:1600px;cursor:zoom-out}
+.note{margin-top:20px;font-size:11px;color:#5A6673;line-height:1.6}
+@media(max-width:560px){td{padding:6px 8px}.shead .code{font-size:15px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>OSG <span>LOOKUP</span></h1>
+  <div class="sub" id="stat">đang nạp dữ liệu…</div>
+</header>
+
+<div class="searchbox">
+  <input type="search" id="q" placeholder="Mã series (WXS-EMS, A-SFT, AD-3D…), EDP No. (8519400), hoặc series + size (WXS-EMS 10)" autocomplete="off">
+  <select id="book">
+    <option value="">Cả 2 catalog</option>
+    <option value="GC1">GC1 — Drill / Tap</option>
+    <option value="GC2">GC2 — End mill</option>
+  </select>
+</div>
+<div class="hint">VD: <b data-q="WXS-EMS">WXS-EMS</b> · <b data-q="AD-3D 8">AD-3D 8</b> · <b data-q="A-SFT M6">A-SFT M6</b> · <b data-q="8519400">8519400</b> · <b data-q="NEO-EMS">NEO-EMS</b> — bấm để thử</div>
+<div class="stats" id="stats2"></div>
+
+<div id="results"><div class="empty">Nhập mã dụng cụ hoặc số EDP để tra cứu.<br>Dữ liệu trích từ catalog OSG 2025–2026 (Drilling/Threading + Milling, 3.050 trang).</div></div>
+
+<p class="note">⚠ Dữ liệu trích tự động từ PDF — cột kích thước hiển thị theo thứ tự gốc trong catalog, đối chiếu tiêu đề cột phía trên bảng. Dòng EDP màu vàng nhạt = suy đoán series từ trang trước. Luôn kiểm tra trang catalog gốc (số trang ghi bên phải mỗi dòng) trước khi đặt điều kiện cắt.</p>
+</div>
+
+<div id="viewer">
+  <div class="vh">
+    <button onclick="closeViewer()">✕ Đóng</button>
+    <span id="vtitle"></span>
+  </div>
+  <img id="vimg" src="" alt="catalog page" onclick="this.classList.toggle('zoom')">
+</div>
+
+<script src="data.js"></script>
+<script>
+const D=OSG_DATA;
+const $=id=>document.getElementById(id);
+/* ---- index hoá ---- */
+const byEDP=new Map();               // edp -> [productIdx]
+const seriesByCode=new Map();        // code -> [seriesIdx]
+D.products.forEach((p,i)=>{ if(!byEDP.has(p.e))byEDP.set(p.e,[]); byEDP.get(p.e).push(i); });
+D.series.forEach((s,i)=>{ const c=s.c.toUpperCase(); if(!seriesByCode.has(c))seriesByCode.set(c,[]); seriesByCode.get(c).push(i); });
+const prodBySeries=new Map();        // seriesIdx -> [productIdx]
+D.products.forEach((p,i)=>{ if(p.s<0)return; if(!prodBySeries.has(p.s))prodBySeries.set(p.s,[]); prodBySeries.get(p.s).push(i); });
+$('stat').textContent=`${D.products.length.toLocaleString()} SKU · ${D.series.length} series · OSG 2025-26`;
+
+function esc(s){return String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));}
+function fileLabel(f){const F=D.files[f];return `${F.book} · ${F.label}`;}
+function pgRef(f,pg){const F=D.files[f];return `${F.book} tr.${F.offset+pg}`;}
+
+function ccButton(s){
+  if(s.ccf===undefined)return s.cc?`<span class="badge">切削条件 P.${esc(s.cc)}</span>`:'';
+  return `<button class="mbtn cc" onclick="openCC(${s.ccf},${s.ccp},'${esc(s.c)} — 切削条件 P.${esc(s.cc)}')">⚙ Xem 切削条件 (P.${esc(s.cc)})</button>`;
+}
+function openCC(f,pg,title){
+  const fname=D.files[f].name;
+  $('vimg').src=`cc/${fname}_${pg}.jpg`;
+  $('vimg').classList.remove('zoom');
+  $('vtitle').textContent=title;
+  $('viewer').classList.add('show');
+}
+function closeViewer(){$('viewer').classList.remove('show');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeViewer();});
+
+function seriesCard(si,rows,limit){
+  const s=D.series[si];
+  const hdr=D.headers[s.f+'|'+s.pg]||'';
+  const shown=rows.slice(0,limit);
+  const body=shown.map(pi=>{
+    const p=D.products[pi];
+    return `<tr${p.x?' class="guess"':''}><td class="edp">${esc(p.e)}</td><td class="row">${esc(p.r)}</td><td class="pgc">${pgRef(p.f,p.pg)}</td></tr>`;
+  }).join('');
+  return `<div class="scard">
+    <div class="shead"><span class="code">${esc(s.c)}</span><span class="name">${esc(s.n||'')}</span>
+      <span class="badge ${D.files[s.f].book==='GC1'?'b1':'b2'}">${esc(fileLabel(s.f))}</span>
+      <span class="badge">trang PDF ${s.pg}${s.pp?' · in P.'+esc(s.pp):''}</span></div>
+    <div class="meta">${ccButton(s)}
+      <a class="mbtn" target="_blank" href="https://www.google.com/search?q=${encodeURIComponent('OSG '+s.c)}">🔎 Google</a>
+      <a class="mbtn" target="_blank" href="https://www.google.com/search?q=${encodeURIComponent('OSG '+s.c+' 切削条件')}">🔎 切削条件 online</a></div>
+    ${hdr?`<div class="hdrline">${esc(hdr)}</div>`:''}
+    <table><tbody>${body||'<tr><td class="row" style="color:var(--muted)">Không có dòng SKU trên trang header (xem trang PDF ở trên).</td></tr>'}</tbody></table>
+    ${rows.length>limit?`<div class="more" onclick="this.previousElementSibling.querySelector('tbody').innerHTML+=renderMore(${si},${limit});this.remove()">▼ Hiện thêm ${rows.length-limit} dòng…</div>`:''}
+  </div>`;
+}
+window.renderMore=(si,limit)=>{
+  const rows=lastRowsBySeries.get(si)||[];
+  return rows.slice(limit).map(pi=>{const p=D.products[pi];
+    return `<tr${p.x?' class="guess"':''}><td class="edp">${esc(p.e)}</td><td class="row">${esc(p.r)}</td><td class="pgc">${pgRef(p.f,p.pg)}</td></tr>`;}).join('');
+};
+
+let lastRowsBySeries=new Map();
+function search(){
+  const raw=$('q').value.trim().toUpperCase();
+  const book=$('book').value;
+  const R=$('results');
+  lastRowsBySeries=new Map();
+  if(!raw){R.innerHTML='<div class="empty">Nhập mã dụng cụ hoặc số EDP để tra cứu.</div>';$('stats2').textContent='';return;}
+  const t0=performance.now();
+
+  /* 1) EDP */
+  if(/^\d{6,8}$/.test(raw)){
+    const hits=(byEDP.get(raw)||[]).filter(pi=>!book||D.files[D.products[pi].f].book===book);
+    if(!hits.length){R.innerHTML=emptyG(raw);return;}
+    const groups=new Map();
+    hits.forEach(pi=>{const s=D.products[pi].s;if(!groups.has(s))groups.set(s,[]);groups.get(s).push(pi);});
+    let html='';
+    groups.forEach((rows,si)=>{
+      if(si>=0){lastRowsBySeries.set(si,rows);html+=seriesCard(si,rows,50);}
+      else html+=looseRows(rows);
+    });
+    R.innerHTML=html;$('stats2').textContent=`${hits.length} kết quả · ${(performance.now()-t0).toFixed(0)}ms`;return;
+  }
+
+  /* 2) series [+ filter tokens] */
+  const tokens=raw.split(/\s+/);
+  const codeQ=tokens[0];
+  const filters=tokens.slice(1);
+  // tìm series: exact trước, sau đó chứa chuỗi
+  let sids=[];
+  seriesByCode.forEach((list,c)=>{
+    if(c===codeQ)sids.push(...list.map(i=>[0,i]));
+    else if(c.includes(codeQ))sids.push(...list.map(i=>[1,i]));
+  });
+  // lọc theo catalog
+  sids=sids.filter(([,i])=>!book||D.files[D.series[i].f].book===book);
+  if(!sids.length){
+    // fallback: tìm token trong dòng sản phẩm? quá rộng — báo không thấy
+    R.innerHTML=emptyG(raw);$('stats2').textContent='';return;
+  }
+  sids.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  // gộp theo mã series (một series nhiều trang -> nhiều card; gộp rows các trang cùng code+file liên tiếp)
+  const seen=new Set();let html='';let cardCount=0;
+  for(const [,si] of sids){
+    if(cardCount>=25){html+=`<div class="empty">… còn nữa, gõ mã chính xác hơn để thu hẹp.</div>`;break;}
+    const s=D.series[si];
+    const key=s.c+'|'+D.files[s.f].book;
+    if(seen.has(key))continue;  // một card cho mỗi mã trong mỗi catalog, rows gộp mọi trang
+    seen.add(key);
+    // gom mọi seriesIdx cùng code+file
+    const same=(seriesByCode.get(s.c.toUpperCase())||[]).filter(j=>D.series[j].f===s.f||D.files[D.series[j].f].book===D.files[s.f].book);
+    let rows=[];
+    same.forEach(j=>{rows.push(...(prodBySeries.get(j)||[]));});
+    if(filters.length){
+      rows=rows.filter(pi=>{
+        const hay=(D.products[pi].e+' '+D.products[pi].r).toUpperCase();
+        return filters.every(fl=>hay.split(/[\s×x]+/).some(tok=>tok===fl||tok===fl.replace('M',''))||hay.includes(fl));
+      });
+    }
+    lastRowsBySeries.set(si,rows);
+    html+=seriesCard(si,rows,filters.length?100:30);
+    cardCount++;
+  }
+  R.innerHTML=html||emptyG(raw);
+  $('stats2').textContent=`${cardCount} series · ${(performance.now()-t0).toFixed(0)}ms`;
+}
+function looseRows(rows){
+  return `<div class="scard"><div class="shead"><span class="code">EDP</span><span class="name">chưa xác định series (trang giá / bảng phụ)</span></div>
+  <table><tbody>${rows.map(pi=>{const p=D.products[pi];
+    return `<tr><td class="edp">${esc(p.e)}</td><td class="row">${esc(p.r)}</td><td class="pgc">${pgRef(p.f,p.pg)}</td></tr>`;}).join('')}</tbody></table></div>`;
+}
+function emptyG(q){
+  const g=encodeURIComponent('OSG '+q);
+  return `<div class="empty">Không tìm thấy "${esc(q)}" trong dữ liệu catalog.<div class="g">
+  <a target="_blank" href="https://www.google.com/search?q=${g}">🔎 Google "OSG ${esc(q)}"</a>
+  <a target="_blank" href="https://www.google.com/search?q=${g}+切削条件">🔎 切削条件</a>
+  <a target="_blank" href="https://www.osg.co.jp/search/?q=${encodeURIComponent(q)}">🔎 OSG.co.jp</a></div></div>`;
+}
+let timer=null;
+$('q').addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(search,180);});
+$('book').addEventListener('change',search);
+document.querySelectorAll('.hint b').forEach(b=>b.onclick=()=>{$('q').value=b.dataset.q;search();});
+</script>
+</body>
+</html>
